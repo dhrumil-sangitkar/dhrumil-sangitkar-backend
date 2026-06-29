@@ -56,8 +56,10 @@ app.use(cors({
 app.options('*', cors());
 
 // ─── Body Parser ───────────────────────────────────────────────
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+// Raised from 10mb: multi-image gallery uploads send several base64-encoded
+// photos in one request, which can exceed 10mb even after client-side compression.
+app.use(express.json({ limit: '40mb' }));
+app.use(express.urlencoded({ extended: true, limit: '40mb' }));
 
 // ─── Health Check (used by keep-alive pinger too) ─────────────
 app.get('/health', (_req, res) => {
