@@ -56,10 +56,11 @@ app.use(cors({
 app.options('*', cors());
 
 // ─── Body Parser ───────────────────────────────────────────────
-// Raised from 10mb: multi-image gallery uploads send several base64-encoded
-// photos in one request, which can exceed 10mb even after client-side compression.
-app.use(express.json({ limit: '40mb' }));
-app.use(express.urlencoded({ extended: true, limit: '40mb' }));
+// 2 MB is plenty now that image files are uploaded directly to Cloudinary
+// from the browser — the backend only receives small JSON payloads containing
+// Cloudinary URLs, not base64-encoded image data.
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
 // ─── Health Check (used by keep-alive pinger too) ─────────────
 app.get('/health', (_req, res) => {

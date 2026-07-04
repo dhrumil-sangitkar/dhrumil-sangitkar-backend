@@ -18,6 +18,9 @@ function toMediaItem(row) {
 // GET /api/media
 async function getAllMedia(req, res) {
   try {
+    // Prevent any browser or CDN caching — the gallery must always reflect
+    // the true current state of the database.
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     const { rows } = await query(
       'SELECT * FROM media_gallery ORDER BY created_at DESC'
     );
@@ -66,7 +69,21 @@ async function createMedia(req, res) {
        RETURNING *`,
       [title, gujaratiTitle || null, type, url, images || [], description || null, category]
     );
-    res.status(201).json(toMediaItem(rows[0]));
+
+    const created = rows[0];
+
+    // Verify the row is actually readable back from the database before telling
+    // the client it succeeded. This guards against any scenario where RETURNING *
+    // reflects an uncommitted/rolled-back write (e.g. pooler or replica quirks) —
+    // if this select doesn't find it, something is wrong and we want a loud 500,
+    // not a false "success" the UI shows once and then loses on refresh.
+    const { rows: verifyRows } = await query('SELECT id FROM media_gallery WHERE id = $1', [created.id]);
+    if (!verifyRows.length) {
+      console.error(`createMedia: row ${created.id} not found on verification read-back`);
+      return res.status(500).json({ success: false, message: 'Media was not saved. Please try again.' });
+    }
+
+    res.status(201).json(toMediaItem(created));
   } catch (err) {
     console.error('createMedia error:', err);
     res.status(500).json({ success: false, message: 'Failed to create media item' });
